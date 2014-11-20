@@ -1,5 +1,5 @@
 /**
-* @module lifterPrompts
+* @module configSetup
 */
 var validation = require('../validation/validation.js');
 
@@ -9,7 +9,7 @@ var validation = require('../validation/validation.js');
 * @memberof module:lifterPrompts
 * @param {object} obj Object of objects each containing a question asked within command line interface, possible selectionoptions (if any), validation methods and conditional next questions
 */
-var promptList = {
+var configPrompts = {
   username: {
     promptText: 'What is your Docker Hub username?\nIf you don\'t have a Docker Hub account, get one at https://hub.docker.com/account/signup/',
     promptClass: 'username',
@@ -128,5 +128,5 @@ var promptList = {
 };
 
 module.exports = {
-  promptList : promptList
+  configPrompts : configPrompts
 }

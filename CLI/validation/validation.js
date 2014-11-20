@@ -25,6 +25,27 @@ var noValidation = function(obj) {
   return true;
 };
 
+var isValidVMName = function(obj) {
+
+  if (regex.test(obj.value)){
+    return true;
+  } else {
+    console.log('Please make sure your password meets all of Azure\'s requirements'.red);
+    return false;
+  }
+};
+
+var isGoodPassword = function(obj) {
+  var regex = /((?=.*\d)(?=.*[a-z])(?=.*[A-Z])(?=.*[!@#$%^&+=]).{8,20})/;
+  if (regex.test(obj.value)){
+    return true;
+  } else {
+    console.log('Please make sure your password meets all of Azure\'s requirements'.red);
+    return false;
+  }
+};
+
+
 /**
 * Function checks whether input is a valid Docker hub repo name
 * Rule #1: 3 - 30 characters.
@@ -35,17 +56,17 @@ var noValidation = function(obj) {
 var isValidRepoName = function(obj) {
 
   if(typeof obj.value !=='string'){
-    console.log('Input is invalid because it is not a string');
+    console.log('Input is invalid because it is not a string'.red);
     return false;
   }
 
   if(!isRepoValidLength(obj.value)){
-    console.log('Input must be between 3- 30 characters');
+    console.log('Input must be between 3- 30 characters'.red);
     return false;
   }
 
   if(!isRepoValidCharacters(obj.value)){
-    console.log('Input must be lowercase, number, or "_" "-" "." ');
+    console.log('Input must be lowercase, number, or "_" "-" "." '.red);
     return false;
   }
   return true;
@@ -135,9 +156,8 @@ var inOptions = function(obj) {
 module.exports = {
   hasValue: hasValue,
   noValidation: noValidation,
+  isGoodPassword: isGoodPassword,
   isValidRepoName: isValidRepoName,
-  isRepoValidLength: isRepoValidLength,
-  isRepoValidCharacters: isRepoValidCharacters,
   inPortRange: inPortRange,
   inOptions: inOptions
 }

@@ -1,9 +1,14 @@
 var fs = require('fs');
 var exec = require('child_process').exec;
-var prompt = require('../../node_modules/prompt');
-var vmSetupQs = require('../prompts/vmSetup.js');
+// var prompt = require('../../node_modules/prompt');
+var rl = require('../helpers/readlineModule.js');
+var vmSetup = require('../prompts/vmSetup.js');
 var yaml = require('../../node_modules/js-yaml');
-var helper = require('../helpers/helpers.js');
+var helpers = require('../helpers/helpers.js');
+var colors = require('colors');
+var configFile = "./.lifter/lifter.yml";
+
+var vmAnswers = {};
 
 //check if user has azure-cli installed
 var checkAzure = function(){
@@ -24,12 +29,80 @@ var checkSubscription = function() {
       console.log("Azure subscription not connected");
       loginAzure();
     } else {
-      whichVM();
+      askVMQuestion(vmSetup.vmPrompts.existingOrNew);
     }
   });
-}
+};
+
+var askVMQuestion = function(obj) {
+// uses util.puts to render question and options for each question
+  helpers.buildPromptDescription(obj.promptText, obj.promptOptions);
+  rl.readCommandLine.question('', function(text) {
+
+    // Assign value as either entered text or the the text of the option selected
+    var value = (!obj.promptOptions) ? text : obj.promptOptions[parseInt(text) - 1];
+
+    if(helpers.validateResponse(obj,value)) {
+      vmAnswers[obj.promptClass] = value;
+//       console.log(value);
+
+      var yamlKey;
+      if (obj.promptClass === 'vmUsernameExisting' || obj.promptClass === 'vmUsernameNew') {
+//           helpers.appendYAML('vmUsername',value);
+
+      } else if (obj.promptClass === 'vmNameExisting' || obj.promptClass === 'vmNameNew') {
+
+        if(obj.promptClass === 'vmNameNew') {
+          console.log('Going to createAzure');
+
+          // secondary validation to insure that VM Name is not already in use
+          createAzureVM(vmAnswers);
+        } else {
+//           helpers.appendYAML('vmName',value);
+        }
+      } else {
+          // Add nothing to YAML
+      }
+
+        // nextEvent handles decision trees
+      var nextEvent = obj.nextClass(value);
+
+      if(nextEvent !== null) {
+          askVMQuestion(vmSetup.vmPrompts[nextEvent]);
+      } else {
+          // Close Command Line
+        rl.readCommandLine.close();
+
+        fs.readFile(configFile, 'utf8', function (err,data) {
+          if (err) {
+            return console.log(err);
+          }
+          var replace = data.replace(/vmNameHere/g, vmAnswers.vmNameNew).replace(/vmUsernameHere/g, vmAnswers.vmUsernameNew);
+
+          fs.writeFile(configFile, replace, 'utf8', function (err) {
+             if (err) {
+              return console.log(err);
+             } else {
+               console.log("Writing deploy script...");
+               updateDeployScript();
+             }
+          });
+        });
+//           updateDeployScript();
+      }
+
+    } else {
+      // Error messages are in the appropriate validation functions
+      askVMQuestion(obj);
+    }
+  });
+
+
+
+};
 
 //asks users if they are deploying to a new vm or to an existing one
+/*
 var whichVM = function(){
   prompt.message = '';
   prompt.delimiter = '';
@@ -43,37 +116,7 @@ var whichVM = function(){
     }
   });
 }
-
-//asks user for their vm name and vm username, appends info to YAML file
-var getVMInfo = function(){
-  prompt.message = '';
-  prompt.delimiter = '';
-  prompt.start();
-
-  prompt.get(vmSetupQs.vmInfo, function(err, result){
-
-    if(err){
-      console.log("ERR: ", err);
-    }
-
-    fs.readFile('./.lifter/lifter.yml', 'utf8', function (err,data) {
-      if (err) {
-        return console.log(err);
-      }
-
-      var replace = data.replace(/vmNameHere/g, result.vmName).replace(/vmUsernameHere/g, result.vmUsername);
-
-      fs.writeFile('./.lifter/lifter.yml', replace, 'utf8', function (err) {
-         if (err) {
-          return console.log(err);
-         } else {
-           console.log("Writing deploy script...");
-           updateDeployScript();
-         }
-      });
-    });
-  });
-}
+*/
 
 //ask the user to login to azure and connect their subscription
 var loginAzure = function() {
@@ -91,6 +134,7 @@ var loginAzure = function() {
 }
 
 //asks user to create vm credentials and grabs ubuntu image
+/*
 var setupAzureVM = function() {
 
   prompt.message = '';
@@ -102,32 +146,42 @@ var setupAzureVM = function() {
     createAzureVM(credentials);
   });
 }
+*/
+
 
 //create an Azure VM with the Ubuntu image
-var createAzureVM = function(creds) {
+var createAzureVM = function(obj) {
 
-  var ubuntuImage = "b39f27a8b8c64d52b05eac6a62ebad85__Ubuntu-14_04-LTS-amd64-server-20140724-en-us-30GB";
-  var command = 'azure vm docker create -e 22 -l "West US" '+ creds[0] +' "' + ubuntuImage + '" ' + creds[1] + ' ' + creds[2];
+var ubuntuImage = "b39f27a8b8c64d52b05eac6a62ebad85__Ubuntu-14_04-LTS-amd64-server-20140724-en-us-30GB";
+  var command = 'azure vm docker create -e 22 -l "West US" '+ obj.vmNameNew +' "' + ubuntuImage + '" ' + obj.vmUsernameNew + ' ' + obj.vmPasswordNew;
 
   exec(command, function(err, stdout, stderr){
     if(err){
       if(/The specified DNS name is already taken|already exists/.test(stderr)){
-        console.log(('A VM with the dns "' + creds[0] + '" already exists.').red);
+        console.log(('A VM with the dns "' + obj.vmNameNew + '" already exists.').red);
         setupAzureVM();
       } else {
         console.log("ERR: ", err);
       }
     } else {
-      console.log('Azure VM "'+ creds[0] + '" created');
+        console.log('Azure VM "'+ obj.vmNameNew + '" created');
 
-      fs.readFile('./.lifter/lifter.yml', 'utf8', function (err,data) {
+/*
+        helpers.appendYAML('vmName',obj.vmNameNew);
+        console.log("Writing deploy script...");
+        updateDeployScript();
+*/
+
+
+
+      fs.readFile(configFile, 'utf8', function (err,data) {
         if (err) {
           return console.log(err);
         }
 
-        var replace = data.replace(/vmNameHere/g, creds[0]).replace(/vmUsernameHere/g, creds[1]);
+        var replace = data.replace(/vmNameHere/g, obj.vmNameNew).replace(/vmUsernameHere/g, obj.vmUsernameNew);
 
-        fs.writeFile('./.lifter/lifter.yml', replace, 'utf8', function (err) {
+        fs.writeFile(configFile, replace, 'utf8', function (err) {
            if (err) {
             return console.log(err);
            } else {
@@ -136,6 +190,8 @@ var createAzureVM = function(creds) {
            }
         });
       });
+
+
     }
   });
 }
@@ -143,7 +199,7 @@ var createAzureVM = function(creds) {
 //updates deploy.sh file to include the correct docker images
 var updateDeployScript = function() {
 
-  var yamlContent = helper.readYAML();
+  var yamlContent = helpers.readYAML();
   var image = yamlContent.username + "/" + yamlContent.repoName + ":latest";
 
   fs.readFile('./.lifter/deploy.sh', 'utf8', function (err,data) {
@@ -167,16 +223,18 @@ var updateDeployScript = function() {
 //copies deploy script into vm
 var sendDeployScript = function(){
 
-  var yamlContent = helper.readYAML();
-  var sshPath = "ssh " +yamlContent.vmUsername+ "@" +yamlContent.vmName+ ".cloudapp.net";
+  var yamlContent = helpers.readYAML();
+  var userNameForDeploy = yamlContent.vmUsername || yamlContent.vmUsernameNew;
+  var vmNameForDeploy = yamlContent.vmName || yamlContent.NameNew;
+  var sshPath = "ssh " + userNameForDeploy + "@" + vmNameForDeploy + ".cloudapp.net";
 
   console.log("\nPlease run the following commands:\n\n" +
-              "1. Send the deploy script to your vm: " +sshPath+ " 'cat > ./.lifter/deploy.sh; scp; cat /home/" +yamlContent.vmUsername+ "' < deploy.sh\n"+
+              "1. Send the deploy script to your vm: " +sshPath+ " 'cat > ./.lifter/deploy.sh; scp; cat /home/" +userNameForDeploy+ "' < deploy.sh\n"+
               "You will be prompted for the vm's password after running this command. If this is your first time ssh-ing into the vm,\n"+
               "you will need to respond 'yes' when asked about authenticating the host\n\n"+
               "2. ssh into your vm: "+sshPath+"\n\n"+
               "3. Run the script inside your vm: sudo sh deploy.sh\n");
-}
+};
 
 module.exports = {
   checkAzure: checkAzure
