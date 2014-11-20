@@ -14,9 +14,19 @@ var configFile = './.lifter/lifter.yml';
 *
 */
 var readYAML = function() {
-  var content = fs.readFileSync(configFile, {encoding: 'utf-8'});
-  return yaml.safeLoad(content);
-};
+  var out;
+  try {
+    var content = fs.readFileSync(configFile);
+    out = yaml.safeLoad(content);
+  } catch (e) {
+    console.log(e.code, e.path);
+    if (e.code === 'ENOENT') {
+      console.log('... config file does not exist, please run lifter config');
+    }
+    process.exit();
+  }
+  return out;
+}
 
 /**
 * Function that writes to lifter.yml
@@ -87,5 +97,6 @@ module.exports = {
   writeYAML: writeYAML,
   appendYAML: appendYAML,
   buildPromptDescription: buildPromptDescription,
-  validateResponse: validateResponse
+  validateResponse: validateResponse,
+  configFile: configFile
 }
